@@ -12,14 +12,7 @@ from binascii import unhexlify, hexlify
 from enum import Enum
 import signal
 import sys
-
-
-def signal_handler(sig, frame):
-    print("You pressed Ctrl+C!")
-    sys.exit(0)
-
-
-signal.signal(signal.SIGINT, signal_handler)
+from aiorun import run
 
 MQTT_RETRY_INTERVAL = 5
 CHARACTERISTIC_LOW = "c4edc000-9daf-11e3-8003-00025b000b00"
@@ -312,8 +305,10 @@ async def main():
         username=mqtt_settings["username"],
         password=mqtt_settings["password"],
     )
+
+    running = True
     # connect to mqtt
-    while True:
+    while running:
         try:
             print("mqtt: Connecting to broker")
             async with mqtt:
@@ -326,7 +321,7 @@ async def main():
 
                 # now connect the mesh
                 print("mesh: Connecting to mesh")
-                while True:
+                while running:
                     try:
                         mesh = None
                         print("mesh: Scanning for devices")
@@ -355,6 +350,9 @@ async def main():
                             await mqtt_subscribe(mqtt, mesh, key)
                             print("done?")
 
+                    except asyncio.CancelledError:
+                        running = False
+
                     except BleakError as e:
                         print(f"mesh: Error connecting to {mac}")
 
@@ -364,18 +362,17 @@ async def main():
                         print(e)
 
                     finally:
+                        print("mesh done")
                         if mesh and mesh.is_connected:
                             await mesh.disconnect()
-                            print("mesh: Disconnected from {mac}")
+                            print(f"mesh: Disconnected from {mac}")
 
         except aiomqtt.MqttError:
             print(f"mqtt: Connection lost; Reconnecting in {MQTT_RETRY_INTERVAL} seconds ...")
             await asyncio.sleep(MQTT_RETRY_INTERVAL)
+        finally:
+            print("mqtt done")
 
 
 # create a new event loop (low-level api)
-loop = asyncio.new_event_loop()
-# schedule our coroutine
-loop.create_task(main())
-# run the event loop until stopped
-loop.run_forever()
+run(main())

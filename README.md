@@ -18,10 +18,6 @@ pip install avionmqtt
 python -m avionmqtt -s settings.yaml
 ```
 
-> [!WARNING]
-> This script currently does not have any graceful handling of SIGINT and so will leave the BLE connection dangling.
-> Use the `sudo bluetoothctl power off && sudo bluetoothctl power on` or similar to reset the adapter.
-
 # settings.yaml
 
 ```yaml
