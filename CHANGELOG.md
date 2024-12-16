@@ -36,3 +36,8 @@ Added several small improvements, leaving the package in a reasonable usable sta
 
 ## 1.3.9 2024-12-14
 - Use logger instead of print to avoid log spew. The log level is configurable via the command line.
+
+## 1.3.10 2024-12-15
+- add product name info and capabilities for Halo Home Light Adapter
+- add product name info and capabilities for Halo Home Lamp Dimmer
+- add product name info and capabilities for Halo Home Recessed Downlight (RL)
