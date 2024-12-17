@@ -90,7 +90,7 @@ class MqttIntegration(Integration):
             if message.topic.matches("homeassistant/status"):
                 if message.payload.decode() == "online":
                     logger.info("mqtt: Home Assistant back online")
-                    await self._register_lights(settings, location)
+                    await self.register_lights(settings, location)
                 else:
                     logger.info("mqtt: Home Assistant offline")
             elif message.topic.matches("hmd/light/avid/+/command"):
