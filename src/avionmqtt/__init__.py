@@ -112,9 +112,6 @@ async def main():
                     except BleakError:
                         logger.warning("mesh: Error connecting to device")
 
-                    except Exception:
-                        logger.exception("mesh: Exception")
-
                     finally:
                         logger.info("mesh: Done")
                         if ble and ble.is_connected:
@@ -124,6 +121,9 @@ async def main():
         except aiomqtt.MqttError:
             logger.warning(f"mqtt: Connection lost; Reconnecting in {MQTT_RETRY_INTERVAL} seconds ...")
             await asyncio.sleep(MQTT_RETRY_INTERVAL)
+        except Exception:
+            logger.exception("Unhandled exception")
+
         finally:
             logger.info("mqtt: Done")
 
