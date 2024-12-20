@@ -95,6 +95,9 @@ class MqttIntegration(Integration):
                     logger.info("mqtt: Home Assistant offline")
             elif message.topic.matches("hmd/light/avid/+/command"):
                 json = message.payload.decode()
+                if json is None or len(json) == 0:
+                    logger.info(f"mqtt: received empty payload (delete) for {avid}")
+                    return
                 avid = int(message.topic.value.split("/")[3])
                 logger.info(f"mqtt: received {json} for {avid}")
                 await mesh.send(avid, json, self)
