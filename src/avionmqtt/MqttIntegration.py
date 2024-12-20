@@ -51,6 +51,9 @@ class MqttIntegration(Integration):
 
         if product_id in CAPABILITIES["color_temp"]:
             config["supported_color_modes"] = ["color_temp"]
+            config["min_mireds"] = 370
+            config["max_mireds"] = 200
+
         await self.mqtt.publish(
             f"homeassistant/light/avid_{avid}/config",
             json.dumps(config),
