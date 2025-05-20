@@ -121,6 +121,7 @@ async def main():
         except aiomqtt.MqttError:
             logger.warning(f"mqtt: Connection lost; Reconnecting in {MQTT_RETRY_INTERVAL} seconds ...")
             await asyncio.sleep(MQTT_RETRY_INTERVAL)
+
         except Exception:
             logger.exception("Unhandled exception")
 

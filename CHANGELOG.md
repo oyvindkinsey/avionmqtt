@@ -41,3 +41,10 @@ Added several small improvements, leaving the package in a reasonable usable sta
 - add product name info and capabilities for Halo Home Light Adapter
 - add product name info and capabilities for Halo Home Lamp Dimmer
 - add product name info and capabilities for Halo Home Recessed Downlight (RL)
+
+## 1.4.0 2025-05-19
+- set the color temp range when creating entities
+- gracefully handle mqtt deletes
+- fix bug with missing kelvin to mireds conversion
+- fix bug with automatic reconnect
+- refactor code from functional to OOP 
