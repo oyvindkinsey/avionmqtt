@@ -1,11 +1,13 @@
+import asyncio
 import json
 import logging
+from datetime import datetime
 from enum import Enum
+from typing import Any, Callable, Optional
 
 import csrmesh
-from bleak import BleakClient, BleakGATTCharacteristic
-
-from .Integration import Integration
+from bleak import BleakClient
+from bleak.backends.characteristic import BleakGATTCharacteristic
 
 logger = logging.getLogger(__name__)
 
@@ -89,24 +91,30 @@ class Noun(Enum):
     NONE = 255
 
 
-def _parse_data(target_id: int, data: bytearray) -> dict:
-    logger.info(f"mesh: parsing data {data} from {target_id}")
+def _parse_data(target_id: int, data: bytes) -> Optional[dict]:
+    logger.info(f"mesh: parsing data {data!r} from {target_id}")
 
     if data[0] == 0 and data[1] == 0:
-        logger.warning(f"empty data")
-        return
+        logger.warning("empty data")
+        return None
 
     try:
         verb = Verb(data[0])
         noun = Noun(data[1])
 
         if verb == Verb.WRITE:
-            target_id = target_id if target_id else int.from_bytes(bytes([data[2], data[3]]), byteorder="big")
+            target_id = (
+                target_id
+                if target_id
+                else int.from_bytes(bytes([data[2], data[3]]), byteorder="big")
+            )
             value_bytes = data[4:]
         else:
             value_bytes = data[2:]
 
-        logger.info(f"mesh: target_id({target_id}), verb({verb}), noun({noun}), value:{value_bytes})")
+        logger.info(
+            f"mesh: target_id({target_id}), verb({verb}), noun({noun}), value:{value_bytes!r})"
+        )
 
         if noun == Noun.DIMMING:
             brightness = int.from_bytes(value_bytes[1:2], byteorder="big")
@@ -119,11 +127,13 @@ def _parse_data(target_id: int, data: bytearray) -> dict:
         else:
             logger.warning(f"unknown noun {noun}")
     except Exception as e:
-        logger.exception(f"mesh: Exception parsing {data} from {target_id}")
+        logger.exception(f"mesh: Exception parsing {data!r} from {target_id}")
+        raise e
+    return None
 
 
 # BLEBridge.decryptMessage
-def _parse_command(source: int, data: bytearray):
+def _parse_command(source: int, data: bytes):
     hex = "-".join(map(lambda b: format(b, "01x"), data))
     logger.info(f"mesh: parsing notification {hex}")
     if data[2] == 0x73:
@@ -135,7 +145,7 @@ def _parse_command(source: int, data: bytearray):
         logger.warning(f"Unable to handle {data[2]}")
 
 
-def _create_packet(target_id: int, verb: Verb, noun: Noun, value_bytes: bytearray) -> bytes:
+def _create_packet(target_id: int, verb: Verb, noun: Noun, value_bytes: bytes) -> bytes:
     if target_id < 32896:
         group_id = target_id
         target_id = 0
@@ -161,7 +171,7 @@ def _create_packet(target_id: int, verb: Verb, noun: Noun, value_bytes: bytearra
     )
 
 
-def _get_color_temp_packet(target_id: int, color: int) -> bytearray:
+def _get_color_temp_packet(target_id: int, color: int) -> bytes:
     return _create_packet(
         target_id,
         Verb.WRITE,
@@ -170,8 +180,39 @@ def _get_color_temp_packet(target_id: int, color: int) -> bytearray:
     )
 
 
-def _get_brightness_packet(target_id: int, brightness: int) -> bytearray:
+def _get_brightness_packet(target_id: int, brightness: int) -> bytes:
     return _create_packet(target_id, Verb.WRITE, Noun.DIMMING, bytes([brightness, 0, 0]))
+
+
+def _get_date_packet(year: int, month: int, day: int) -> bytes:
+    year -= 2000
+    return _create_packet(
+        0,
+        Verb.WRITE,
+        Noun.DATE,
+        bytearray(
+            [
+                year,
+                month,
+                day,
+            ]
+        ),
+    )
+
+
+def _get_time_packet(hour: int, minute: int, seconds: int) -> bytes:
+    return _create_packet(
+        0,
+        Verb.WRITE,
+        Noun.TIME,
+        bytearray(
+            [
+                hour,
+                minute,
+                seconds,
+            ]
+        ),
+    )
 
 
 def apply_overrides_from_settings(settings: dict):
@@ -191,8 +232,8 @@ class Mesh:
     def __init__(self, mesh: BleakClient, passphrase: str) -> None:
         super().__init__()
         self._mesh = mesh
-
         self._key = csrmesh.crypto.generate_key(passphrase.encode("ascii") + b"\x00\x4d\x43\x50")
+        self._notification_callback: Optional[Callable] = None
 
     async def _write_gatt(self, packet: bytes) -> bool:
         logger.debug("-".join(map(lambda b: format(b, "02x"), packet)))
@@ -208,39 +249,114 @@ class Mesh:
         packet = _create_packet(0, Verb.READ, Noun.DIMMING, bytearray(3))
         await self._write_gatt(packet)
 
-    async def subscribe(self, integration: Integration):
-        async def cb(charactheristic: BleakGATTCharacteristic, data: bytearray):
+    async def set_network_time(self):
+        now = datetime.now()
+        await self._write_gatt(_get_date_packet(now.year, now.month, now.day))
+        await asyncio.sleep(3)
+        now = datetime.now()
+        await self._write_gatt(_get_time_packet(now.hour, now.minute, now.second))
+
+    async def subscribe(self, callback: Callable[[dict], Any]):
+        """
+        Subscribe to mesh status updates.
+
+        This method now accepts an async callback that will be called
+        for each status update from the mesh. The callback should accept
+        a dict and can be async.
+
+        Args:
+            callback: Async function to call with status updates.
+                     Signature: async def callback(status_data: dict)
+        """
+        self._notification_callback = callback
+
+        try:
+            # Start notifications on the RX characteristic
+            await self._mesh.start_notify(CHARACTERISTIC_LOW, self._handle_notification)
+            await self._mesh.start_notify(CHARACTERISTIC_HIGH, self._handle_notification)
+
+            logger.info("Subscribed to mesh notifications")
+
+            # Keep the subscription alive
+            while self._mesh.is_connected:
+                await asyncio.sleep(1)
+
+        except Exception as e:
+            logger.error(f"Error in mesh subscription: {e}")
+            raise
+        finally:
+            # Stop notifications on cleanup
+            if self._mesh.is_connected:
+                try:
+                    await self._mesh.stop_notify(CHARACTERISTIC_LOW)
+                    await self._mesh.stop_notify(CHARACTERISTIC_HIGH)
+                except Exception as e:
+                    logger.warning(f"Error stopping notifications: {e}")
+
+    def _handle_notification(self, charactheristic: BleakGATTCharacteristic, data: bytearray):
+        """
+        Handle incoming BLE notifications from the mesh.
+        This is called synchronously by Bleak, so we need to schedule
+        the async callback properly.
+
+        Args:
+            sender: Characteristic handle
+            data: Raw notification data
+        """
+        try:
             if charactheristic.uuid == CHARACTERISTIC_LOW:
                 self._low_bytes = data
             elif charactheristic.uuid == CHARACTERISTIC_HIGH:
                 encrypted = bytes([*self._low_bytes, *data])
                 decoded = csrmesh.crypto.decrypt_packet(self._key, encrypted)
                 parsed = _parse_command(decoded["source"], decoded["decpayload"])
-                if parsed:
-                    await integration.update_state(parsed)
+                if parsed and self._notification_callback:
+                    # Schedule the async callback
+                    asyncio.create_task(self._notification_callback(parsed))
 
-        await self._mesh.start_notify(CHARACTERISTIC_LOW, cb)
-        await self._mesh.start_notify(CHARACTERISTIC_HIGH, cb)
-        logger.info("mesh: reading all")
-        await self.read_all()
+        except Exception as e:
+            logger.error(f"Error handling notification: {e}")
 
-    async def send(self, avid: int, raw_payload: str, integration: Integration) -> bool:
-        payload = json.loads(raw_payload)
-        if "brightness" in payload:
-            packet = _get_brightness_packet(avid, payload["brightness"])
-        elif "color_temp" in payload:
-            mired = payload["color_temp"]
-            kelvin = (int)(1000000 / mired)
-            logger.info(f"mesh: Converting mired({mired}) to kelvin({kelvin})")
-            packet = _get_color_temp_packet(avid, kelvin)
-        elif "state" in payload:
-            packet = _get_brightness_packet(avid, 255 if payload["state"] == "ON" else 0)
-        else:
-            logger.warning("mesh: Unknown payload")
-            return False
+    async def send_command(self, command_data: dict):
+        """
+        Send a command to the mesh network.
 
-        if await self._write_gatt(packet):
-            logger.info("mesh: Acknowedging directly")
-            parsed = _parse_command(avid, packet)
-            if parsed:
-                await integration.update_state(parsed)
+        Args:
+            command_data: Command dict containing:
+                - device_id: Target device ID
+                - state: "ON" or "OFF"
+                - brightness: Optional brightness (0-255)
+                - color_temp: Optional color temperature
+        """
+        try:
+            avid: int = command_data.get("avid")  # type: ignore
+            command = command_data.get("command")
+            if command == "read_all":
+                await self.read_all()
+
+            elif command == "update":
+                payload = json.loads(command_data.get("json"))  # type: ignore
+                if "brightness" in payload:
+                    packet = _get_brightness_packet(avid, payload["brightness"])
+                elif "color_temp" in payload:
+                    mired = payload["color_temp"]
+                    kelvin = (int)(1000000 / mired)
+                    logger.info(f"mesh: Converting mired({mired}) to kelvin({kelvin})")
+                    packet = _get_color_temp_packet(avid, kelvin)
+                elif "state" in payload:
+                    packet = _get_brightness_packet(avid, 255 if payload["state"] == "ON" else 0)
+                else:
+                    logger.warning("mesh: Unknown payload")
+                    return False
+
+                if await self._write_gatt(packet):
+                    logger.info("mesh: Acknowedging directly")
+                    parsed = _parse_command(avid, packet)
+                    if self._notification_callback and parsed:
+                        await self._notification_callback(parsed)
+
+            logger.debug(f"Sent command to device {avid}: {command_data}")
+
+        except Exception as e:
+            logger.error(f"Error sending command to mesh: {e}")
+            raise

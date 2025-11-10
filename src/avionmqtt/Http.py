@@ -1,10 +1,9 @@
 import asyncio
-from typing import List
+from typing import List, Optional
 
 import aiohttp
 
 HTTP_HOST = "https://api.avi-on.com"
-HTTP_TIMEOUT = 5
 
 
 def util_format_mac_address(mac_address: str) -> str:
@@ -16,9 +15,8 @@ def util_format_mac_address(mac_address: str) -> str:
 async def http_make_request(
     host: str,
     path: str,
-    body: dict = None,
-    auth_token: str = None,
-    timeout: int = HTTP_TIMEOUT,
+    body: Optional[dict] = None,
+    auth_token: Optional[str] = None,
 ):
     method = "GET" if body is None else "POST"
     url = host + path
@@ -29,13 +27,13 @@ async def http_make_request(
         headers["Authorization"] = f"Token {auth_token}"
 
     async with aiohttp.ClientSession() as session:
-        async with session.request(method, url, json=body, headers=headers, timeout=timeout) as response:
+        async with session.request(method, url, json=body, headers=headers) as response:
             return await response.json()
 
 
-async def http_load_devices(host: str, auth_token: str, location_id: str, timeout: int) -> List[dict]:
+async def http_load_devices(host: str, auth_token: str, location_id: int) -> List[dict]:
     response = await http_make_request(
-        host, f"locations/{location_id}/abstract_devices", auth_token=auth_token, timeout=timeout
+        host, f"locations/{location_id}/abstract_devices", auth_token=auth_token
     )
     raw_devices = response["abstract_devices"]
     devices = []
@@ -49,20 +47,28 @@ async def http_load_devices(host: str, auth_token: str, location_id: str, timeou
         avid = raw_device["avid"]
         name = raw_device["name"]
         mac_address = util_format_mac_address(raw_device["friendly_mac_address"])
-        device = {"pid": pid, "product_id": product_id, "avid": avid, "name": name, "mac_address": mac_address}
+        device = {
+            "pid": pid,
+            "product_id": product_id,
+            "avid": avid,
+            "name": name,
+            "mac_address": mac_address,
+        }
         devices.append(device)
 
     return devices
 
 
-async def http_get_devices_in_group(host: str, auth_token: str, group_id: int, timeout: int):
-    response = await http_make_request(host, f"groups/{group_id}", auth_token=auth_token, timeout=timeout)
+async def http_get_devices_in_group(host: str, auth_token: str, group_id: int):
+    response = await http_make_request(host, f"groups/{group_id}", auth_token=auth_token)
     raw_response = response["group"]
     return raw_response["devices"]
 
 
-async def http_load_groups(host: str, auth_token: str, location_id: str, timeout: int) -> List[dict]:
-    response = await http_make_request(host, f"locations/{location_id}/groups", auth_token=auth_token, timeout=timeout)
+async def http_load_groups(host: str, auth_token: str, location_id: int) -> List[dict]:
+    response = await http_make_request(
+        host, f"locations/{location_id}/groups", auth_token=auth_token
+    )
     raw_groups = response["groups"]
     groups = []
 
@@ -70,19 +76,19 @@ async def http_load_groups(host: str, auth_token: str, location_id: str, timeout
         pid = raw_group["pid"]
         avid = raw_group["avid"]
         name = raw_group["name"]
-        devices = await http_get_devices_in_group(host, auth_token, pid, timeout)
+        devices = await http_get_devices_in_group(host, auth_token, pid)
         group = {"pid": pid, "product_id": 0, "avid": avid, "name": name, "devices": devices}
         groups.append(group)
 
     return groups
 
 
-async def http_load_location(host: str, auth_token: str, location_id: int, timeout: int) -> dict:
-    response = await http_make_request(host, f"locations/{location_id}", auth_token=auth_token, timeout=timeout)
+async def http_load_location(host: str, auth_token: str, location_id: int) -> dict:
+    response = await http_make_request(host, f"locations/{location_id}", auth_token=auth_token)
     raw_location = response["location"]
     devices, groups = await asyncio.gather(
-        http_load_devices(host, auth_token, location_id, timeout),
-        http_load_groups(host, auth_token, location_id, timeout),
+        http_load_devices(host, auth_token, location_id),
+        http_load_groups(host, auth_token, location_id),
     )
     return {
         "passphrase": raw_location["passphrase"],
@@ -91,11 +97,11 @@ async def http_load_location(host: str, auth_token: str, location_id: int, timeo
     }
 
 
-async def http_load_locations(host: str, auth_token: str, timeout: int) -> List[dict]:
-    response = await http_make_request(host, "user/locations", auth_token=auth_token, timeout=timeout)
+async def http_load_locations(host: str, auth_token: str) -> List[dict]:
+    response = await http_make_request(host, "user/locations", auth_token=auth_token)
     locations = []
     for raw_location in response["locations"]:
-        location = await http_load_location(host, auth_token, raw_location["pid"], timeout)
+        location = await http_load_location(host, auth_token, raw_location["pid"])
         locations.append(location)
 
     return locations
@@ -105,15 +111,14 @@ async def http_list_devices(
     email: str,
     password: str,
     host: str = HTTP_HOST,
-    timeout: int = HTTP_TIMEOUT,
-):
+) -> List[dict]:
     if not host.endswith("/"):
         host += "/"
 
     login_body = {"email": email, "password": password}
-    response = await http_make_request(host, "sessions", login_body, timeout=timeout)
+    response = await http_make_request(host, "sessions", login_body)
     if "credentials" not in response:
         raise Exception("Invalid credentials for HALO Home")
     auth_token = response["credentials"]["auth_token"]
 
-    return await http_load_locations(host, auth_token, timeout)
+    return await http_load_locations(host, auth_token)

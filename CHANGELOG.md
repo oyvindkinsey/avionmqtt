@@ -47,4 +47,7 @@ Added several small improvements, leaving the package in a reasonable usable sta
 - gracefully handle mqtt deletes
 - fix bug with missing kelvin to mireds conversion
 - fix bug with automatic reconnect
-- refactor code from functional to OOP 
+- refactor code from functional to OOP
+
+## 1.5.0  2025-11-10
+- Large refactoring to allow mqtt and mesh to operate independently

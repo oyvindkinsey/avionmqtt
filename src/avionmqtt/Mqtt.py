@@ -1,16 +1,15 @@
 import json
 import logging
-from typing import List
+from typing import AsyncIterator, List, Optional
 
 import aiomqtt
 
-from .Integration import Integration
-from .Mesh import CAPABILITIES, PRODUCT_NAMES, Mesh
+from .Mesh import CAPABILITIES, PRODUCT_NAMES
 
 logger = logging.getLogger(__name__)
 
 
-class MqttIntegration(Integration):
+class Mqtt:
     def __init__(self, mqtt: aiomqtt.Client) -> None:
         super().__init__()
         self.mqtt = mqtt
@@ -82,36 +81,60 @@ class MqttIntegration(Integration):
         await self._register_category(use_single_device, settings["devices"], location["devices"])
         if "all" in settings:
             await self._register(
-                use_single_device, {"pid": "avion_all", "product_id": 0, "avid": 0, "name": settings["all"]["name"]}
+                use_single_device,
+                {"pid": "avion_all", "product_id": 0, "avid": 0, "name": settings["all"]["name"]},
             )
 
-    async def connect(self, mesh: Mesh, settings: dict, location: dict):
+    async def handle_homeassistant_status(self, settings: dict, location: dict, message):
+        if message.payload.decode() == "online":
+            logger.info("mqtt: Home Assistant back online")
+            await self.register_lights(settings, location)
+        else:
+            logger.info("mqtt: Home Assistant offline")
+
+    async def handle_light_command(self, message) -> Optional[dict]:
+        decoded = message.payload.decode()
+        if json is None or len(decoded) == 0:
+            # empty payloads are used for deletes
+            return None
+        avid = int(message.topic.value.split("/")[3])
+        logger.info(f"mqtt: received {json} for {avid}")
+        return {"avid": avid, "command": "update", "json": decoded}
+
+    async def handle_avionmqtt_command(self, message) -> Optional[dict]:
+        if message.payload.decode() == "poll_mesh":
+            logger.info("mqtt: polling mesh")
+            return {"avid": 0, "command": "read_all"}
+        return None
+
+    async def listen_for_commands(
+        self,
+        settings: dict,
+        location: dict,
+    ) -> AsyncIterator[dict]:
         await self.mqtt.subscribe("homeassistant/status")
         await self.mqtt.subscribe("hmd/light/avid/+/command")
         await self.mqtt.subscribe("avionmqtt")
-        async for message in self.mqtt.messages:
-            if message.topic.matches("homeassistant/status"):
-                if message.payload.decode() == "online":
-                    logger.info("mqtt: Home Assistant back online")
-                    await self.register_lights(settings, location)
-                else:
-                    logger.info("mqtt: Home Assistant offline")
-            elif message.topic.matches("hmd/light/avid/+/command"):
-                json = message.payload.decode()
-                if json is None or len(json) == 0:
-                    logger.info(f"mqtt: received empty payload (delete) for {avid}")
-                    return
-                avid = int(message.topic.value.split("/")[3])
-                logger.info(f"mqtt: received {json} for {avid}")
-                await mesh.send(avid, json, self)
-            elif message.topic.matches("avionmqtt"):
-                if message.payload.decode() == "poll_mesh":
-                    logger.info("mqtt: polling mesh")
-                    await mesh.read_all()
 
-    async def update_state(self, message: dict):
+        async for message in self.mqtt.messages:
+            try:
+                if message.topic.matches("homeassistant/status"):
+                    await self.handle_homeassistant_status(settings, location, message)
+                elif message.topic.matches("hmd/light/avid/+/command"):
+                    result = await self.handle_light_command(message)
+                    if result:
+                        yield result
+                elif message.topic.matches("avionmqtt"):
+                    result = await self.handle_avionmqtt_command(message)
+                    if result:
+                        yield result
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse command payload: {e}")
+            except Exception as e:
+                logger.error(f"Error processing command: {e}")
+
+    async def publish_status(self, message: dict):
         # TODO: Only send update if we've actually registered this device
-        logger.info(f"mqtt: sending update for {message}")
         avid = message["avid"]
         state_topic = f"hmd/light/avid/{avid}/state"
         if "brightness" in message:
