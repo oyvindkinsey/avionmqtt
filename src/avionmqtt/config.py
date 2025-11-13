@@ -18,7 +18,7 @@ def load_settings(file: str) -> dict:
     except FileNotFoundError:
         logger.error(f"Settings file not found: {file}")
         raise
-    raise "Failed to load settings"
+    raise ValueError("Failed to load settings")
 
 
 def validate_settings(settings: dict):

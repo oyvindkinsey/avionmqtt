@@ -135,6 +135,7 @@ async def mesh_command_processor(mesh: Mesh, command_queue: asyncio.Queue):
 
             except Exception as e:
                 logger.error(f"Error sending command: {e}")
+                raise
             finally:
                 command_queue.task_done()
     except asyncio.CancelledError:

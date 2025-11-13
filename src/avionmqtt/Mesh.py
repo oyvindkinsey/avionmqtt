@@ -236,7 +236,8 @@ class Mesh:
         self._notification_callback: Optional[Callable] = None
 
     async def _write_gatt(self, packet: bytes) -> bool:
-        logger.debug("-".join(map(lambda b: format(b, "02x"), packet)))
+        hex = "-".join(map(lambda b: format(b, "02x"), packet))
+        logger.debug(f"Writing to gatt: {hex}")
 
         csrpacket = csrmesh.crypto.make_packet(self._key, csrmesh.crypto.random_seq(), packet)
         low = csrpacket[:20]
