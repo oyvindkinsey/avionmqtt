@@ -94,11 +94,11 @@ class Mqtt:
 
     async def handle_light_command(self, message) -> Optional[dict]:
         decoded = message.payload.decode()
-        if json is None or len(decoded) == 0:
+        if decoded is None or len(decoded) == 0:
             # empty payloads are used for deletes
             return None
         avid = int(message.topic.value.split("/")[3])
-        logger.info(f"mqtt: received {json} for {avid}")
+        logger.info(f"mqtt: received {decoded} for {avid}")
         return {"avid": avid, "command": "update", "json": decoded}
 
     async def handle_avionmqtt_command(self, message) -> Optional[dict]:
