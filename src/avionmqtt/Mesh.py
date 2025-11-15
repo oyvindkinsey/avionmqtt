@@ -320,6 +320,13 @@ class Mesh:
 
             if time_diff < 750:
                 # This is a rapid dimming command
+                if brightness == prev_brightness:
+                    # Same value - not a valid rapid dimming sequence
+                    logger.debug(
+                        f"Rapid commands but same brightness ({brightness}) for target_id {target_id}, ignoring"
+                    )
+                    return None
+
                 is_incrementing = brightness > prev_brightness
                 logger.info(
                     f"Rapid dimming detected for target_id {target_id}: "
