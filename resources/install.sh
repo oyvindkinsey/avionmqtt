@@ -28,7 +28,7 @@ After=bluetooth.service
 StartLimitIntervalSec=0
 
 [Service]
-ExecStart=/usr/local/lib/$SERVICE_NAME/.venv/bin/python -m avionmqtt -s /usr/local/lib/$SERVICE_NAME/settings.yaml
+ExecStart=/usr/local/lib/$SERVICE_NAME/.venv/bin/avionmqtt -s /usr/local/lib/$SERVICE_NAME/settings.yaml
 Restart=always
 RestartSec=1
 User=$SERVICE_USER
