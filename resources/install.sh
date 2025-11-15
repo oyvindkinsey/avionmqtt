@@ -24,7 +24,8 @@ useradd -r -s /bin/false $SERVICE_USER
 cat <<EOF > "/etc/systemd/system/$SERVICE_NAME.service"
 [Unit]
 Description=avion mqtt bridge
-After=bluetooth.service
+After=bluetooth.service network-online.target
+Wants=network-online.target
 StartLimitIntervalSec=0
 
 [Service]
