@@ -36,9 +36,11 @@ classifiers = [
 ]
 
 dependencies = [
+    "aiohttp>=3.7",
     "aiomqtt>=2.0.0",
     "aiorun>=2022.11.1",
     "bleak>=0.21.0",
+    "csrmesh>=0.10",
     "pyyaml>=6.0",
 ]
 
