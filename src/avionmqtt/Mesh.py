@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import time
 from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Optional
@@ -234,6 +235,10 @@ class Mesh:
         self._mesh = mesh
         self._key = csrmesh.crypto.generate_key(passphrase.encode("ascii") + b"\x00\x4d\x43\x50")
         self._notification_callback: Optional[Callable] = None
+        # Track dimming commands for rapid dimming detection
+        self._dimming_commands: dict[
+            int, tuple[int, float]
+        ] = {}  # target_id -> (brightness, timestamp)
 
     async def _write_gatt(self, packet: bytes) -> bool:
         hex = "-".join(map(lambda b: format(b, "02x"), packet))
@@ -294,6 +299,43 @@ class Mesh:
                 except Exception as e:
                     logger.warning(f"Error stopping notifications: {e}")
 
+    def _check_rapid_dimming(self, target_id: int, brightness: int) -> Optional[int]:
+        """
+        Check if this is a rapid dimming command (within 750ms of the previous command).
+        If it is, determine if commands are incrementing or decrementing and return
+        the appropriate brightness value (5 for decrementing, 255 for incrementing).
+
+        Args:
+            target_id: Target device ID
+            brightness: New brightness value
+
+        Returns:
+            Brightness value to use (0, 255, or None if not a rapid dimming scenario)
+        """
+        current_time = time.time()
+
+        if target_id in self._dimming_commands:
+            prev_brightness, prev_time = self._dimming_commands[target_id]
+            time_diff = (current_time - prev_time) * 1000  # Convert to milliseconds
+
+            if time_diff < 750:
+                # This is a rapid dimming command
+                is_incrementing = brightness > prev_brightness
+                logger.info(
+                    f"Rapid dimming detected for target_id {target_id}: "
+                    f"{prev_brightness} -> {brightness} ({time_diff:.0f}ms), "
+                    f"direction: {'incrementing' if is_incrementing else 'decrementing'}"
+                )
+                # Return 255 for incrementing, 5 for decrementing
+                final_brightness = 255 if is_incrementing else 5
+                # Clear the command history since we're processing it
+                del self._dimming_commands[target_id]
+                return final_brightness
+
+        # Store this command for next check
+        self._dimming_commands[target_id] = (brightness, current_time)
+        return None
+
     def _handle_notification(self, charactheristic: BleakGATTCharacteristic, data: bytearray):
         """
         Handle incoming BLE notifications from the mesh.
@@ -311,12 +353,48 @@ class Mesh:
                 encrypted = bytes([*self._low_bytes, *data])
                 decoded = csrmesh.crypto.decrypt_packet(self._key, encrypted)
                 parsed = _parse_command(decoded["source"], decoded["decpayload"])
-                if parsed and self._notification_callback:
-                    # Schedule the async callback
-                    asyncio.create_task(self._notification_callback(parsed))
+                if parsed:
+                    # Check for rapid dimming if this is a brightness command
+                    if "brightness" in parsed:
+                        rapid_dimming_result = self._check_rapid_dimming(
+                            parsed["avid"], parsed["brightness"]
+                        )
+
+                        if rapid_dimming_result is not None:
+                            # Rapid dimming detected, send the extreme brightness value
+                            logger.info(
+                                f"mesh: Sending rapid dimming brightness {rapid_dimming_result}"
+                            )
+                            asyncio.create_task(
+                                self._send_brightness_async(parsed["avid"], rapid_dimming_result)
+                            )
+                            return
+
+                    # No rapid dimming, proceed with normal notification
+                    if self._notification_callback:
+                        # Schedule the async callback
+                        asyncio.create_task(self._notification_callback(parsed))
 
         except Exception as e:
             logger.error(f"Error handling notification: {e}")
+
+    async def _send_brightness_async(self, target_id: int, brightness: int):
+        """
+        Send a brightness command to the mesh and notify via callback.
+
+        Args:
+            target_id: Target device ID
+            brightness: Brightness value (0-255)
+        """
+        try:
+            packet = _get_brightness_packet(target_id, brightness)
+            if await self._write_gatt(packet):
+                logger.info(f"mesh: Sent brightness {brightness} to {target_id}")
+                # Notify via callback
+                if self._notification_callback:
+                    await self._notification_callback({"avid": target_id, "brightness": brightness})
+        except Exception as e:
+            logger.error(f"Error sending brightness command: {e}")
 
     async def send_command(self, command_data: dict):
         """
