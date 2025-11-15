@@ -22,7 +22,7 @@ This should support any devices that uses Avi-on's technology, including Halo Ho
 ```bash
 # if bluepy fails to compile, try installing libglib2.0-dev first (apt-get install libglib2.0-dev)
 pip install avionmqtt
-python -m avionmqtt -s settings.yaml --log=DEBUG
+avionmqtt -s settings.yaml --log=INFO
 ```
  ## service install script
  See [Running as a service.md](resources/Running%20as%20a%20service.md) for how to install this as a service using systemd.
