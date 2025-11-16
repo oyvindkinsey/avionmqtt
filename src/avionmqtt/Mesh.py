@@ -6,9 +6,10 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Optional
 
-import csrmesh
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
+
+from .csrmeshcrypto import decrypt_packet, generate_key, make_packet, random_seq
 
 logger = logging.getLogger(__name__)
 
@@ -233,7 +234,7 @@ class Mesh:
     def __init__(self, mesh: BleakClient, passphrase: str) -> None:
         super().__init__()
         self._mesh = mesh
-        self._key = csrmesh.crypto.generate_key(passphrase.encode("ascii") + b"\x00\x4d\x43\x50")
+        self._key = generate_key(passphrase.encode("ascii") + b"\x00\x4d\x43\x50")
         self._notification_callback: Optional[Callable] = None
         # Track dimming commands for rapid dimming detection
         self._dimming_commands: dict[
@@ -244,7 +245,7 @@ class Mesh:
         hex = "-".join(map(lambda b: format(b, "02x"), packet))
         logger.debug(f"Writing to gatt: {hex}")
 
-        csrpacket = csrmesh.crypto.make_packet(self._key, csrmesh.crypto.random_seq(), packet)
+        csrpacket = make_packet(self._key, random_seq(), packet)
         low = csrpacket[:20]
         high = csrpacket[20:]
         await self._mesh.write_gatt_char(CHARACTERISTIC_LOW, low)
@@ -358,7 +359,7 @@ class Mesh:
                 self._low_bytes = data
             elif charactheristic.uuid == CHARACTERISTIC_HIGH:
                 encrypted = bytes([*self._low_bytes, *data])
-                decoded = csrmesh.crypto.decrypt_packet(self._key, encrypted)
+                decoded = decrypt_packet(self._key, encrypted)
                 parsed = _parse_command(decoded["source"], decoded["decpayload"])
                 if parsed:
                     # Check for rapid dimming if this is a brightness command
