@@ -3,9 +3,11 @@
 A python library to bridge between Avi-on based lights and Home Assistant using MQTT
 
 ## support
+
 This should support any devices that uses Avi-on's technology, including Halo Home and GE branded BLE lights (both discontinued, but both supported by Avi-on's cloud infra and mobile apps).
 
 # features
+
 - creates lights for devices and groups in Home Assistant
   - supports creating meta lights such as for 'all', usefull for automation of color temperature
 - supports changing brightness and color temperature
@@ -24,7 +26,9 @@ This should support any devices that uses Avi-on's technology, including Halo Ho
 pip install avionmqtt
 avionmqtt -s settings.yaml --log=INFO
 ```
- ## service install script
+
+## service install script
+
  See [Running as a service.md](resources/Running%20as%20a%20service.md) for how to install this as a service using systemd.
 
 ## settings.yaml
@@ -71,4 +75,9 @@ capabilities_overrides:
 ```
 
 # acknowledgements
-This project would not have been possible without the original work done in https://github.com/nkaminski/csrmesh and https://github.com/nayaverdier/halohome
+
+This project would not have been possible without the original work done in <https://github.com/nkaminski/csrmesh> and <https://github.com/nayaverdier/halohome>
+
+## License
+
+This project is licensed under the GNU Lesser General Public License v3.0 or later (LGPL-3.0-or-later). See the `LICENSE` file for the full license text and details.
