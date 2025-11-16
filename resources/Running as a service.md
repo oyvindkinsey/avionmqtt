@@ -1,6 +1,6 @@
 # Running avionmqtt as a service
 
-This is based on the guide from https://github.com/torfsen/python-systemd-tutorial.
+This is based on the guide from <https://github.com/torfsen/python-systemd-tutorial>.
 
 ---
 

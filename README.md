@@ -6,7 +6,7 @@ A python library to bridge between Avi-on based lights and Home Assistant using 
 
 This should support any devices that uses Avi-on's technology, including Halo Home and GE branded BLE lights (both discontinued, but both supported by Avi-on's cloud infra and mobile apps).
 
-# features
+## features
 
 - creates lights for devices and groups in Home Assistant
   - supports creating meta lights such as for 'all', usefull for automation of color temperature
@@ -19,7 +19,7 @@ This should support any devices that uses Avi-on's technology, including Halo Ho
 - polls the whole network on startup to get the current state of each device
 - updates Home Assistant whenever devices are updated externally
 
-# how to use
+## how to use
 
 ```bash
 # if bluepy fails to compile, try installing libglib2.0-dev first (apt-get install libglib2.0-dev)
@@ -74,7 +74,7 @@ capabilities_overrides:
     - 123
 ```
 
-# acknowledgements
+## acknowledgements
 
 This project would not have been possible without the original work done in <https://github.com/nkaminski/csrmesh> and <https://github.com/nayaverdier/halohome>
 
