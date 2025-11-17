@@ -69,3 +69,7 @@ Added several small improvements, leaving the package in a reasonable usable sta
 ## 2.0.1 2025-11-16
 
 - Convert to using the LGPL license instead of MIT
+
+## 2.0.2 2025-11-16
+
+- Reduced the set of dependencies to support home assistant custom integration
