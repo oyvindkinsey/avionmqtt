@@ -1,6 +1,8 @@
 import asyncio
 import logging
 
+from bleak import BleakScanner
+
 from .Http import http_list_devices
 from .Mesh import apply_overrides_from_settings
 from .mesh_handler import mesh_handler
@@ -39,7 +41,7 @@ class AvionMqttService:
 
             location = locations[0]
             passphrase = location["passphrase"]
-            target_devices = [d["mac_address"].lower() for d in location["devices"]]
+            target_devices = [d["mac_address"].upper() for d in location["devices"]]
 
             logger.info(f"Resolved {len(target_devices)} devices for {email}")
 
@@ -53,12 +55,16 @@ class AvionMqttService:
                         self.status_queue,
                     )
                 )
+                # Create a scanner instance and pass it into mesh_handler so
+                # callers (including Home Assistant) can provide a shared scanner.
+                scanner = BleakScanner()
                 tg.create_task(
                     mesh_handler(
                         passphrase,
                         target_devices,
                         self.command_queue,
                         self.status_queue,
+                        scanner,
                     )
                 )
                 logger.info("Service started successfully")
@@ -67,4 +73,5 @@ class AvionMqttService:
             logger.info("Received shutdown signal, stopping gracefully...")
         except Exception:
             logger.exception("Fatal error in service")
+            raise
             raise

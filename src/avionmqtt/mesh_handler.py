@@ -13,11 +13,12 @@ BLE_RETRY_INTERVAL = 10
 BLE_CONNECT_TIMEOUT = 30
 
 
-async def mac_ordered_by_rssi():
-    """Scan for BLE devices and return MACs ordered by signal strength."""
-    scanned_devices = await BleakScanner.discover(return_adv=True)
+async def mac_ordered_by_rssi(scanner: BleakScanner):
+    """Scan for BLE devices using the provided scanner and return MACs ordered by signal strength."""
+    scanned_devices = await scanner.discover(return_adv=True)
+    # `scanned_devices` is a mapping of address -> (device, advertisement_data)
     sorted_devices = sorted(scanned_devices.items(), key=lambda d: d[1][1].rssi, reverse=True)
-    return [d[0].lower() for d in sorted_devices]
+    return [d[0].upper() for d in sorted_devices]
 
 
 async def mesh_handler(  # noqa: C901
@@ -25,6 +26,7 @@ async def mesh_handler(  # noqa: C901
     target_devices: list[str],
     command_queue: asyncio.Queue,
     status_queue: asyncio.Queue,
+    scanner: BleakScanner,
 ):
     """Handle BLE mesh connection with automatic reconnection."""
     while True:
@@ -33,7 +35,7 @@ async def mesh_handler(  # noqa: C901
 
         try:
             logger.info("Scanning for BLE devices")
-            available_macs = set(await mac_ordered_by_rssi()).intersection(target_devices)
+            available_macs = set(await mac_ordered_by_rssi(scanner)).intersection(target_devices)
 
             if not available_macs:
                 logger.warning("No target devices found in scan")
@@ -44,8 +46,9 @@ async def mesh_handler(  # noqa: C901
             for mac in available_macs:
                 logger.info(f"Attempting connection to {mac}")
                 try:
+                    # Use the provided scanner instance to locate the device
                     ble_device = await asyncio.wait_for(
-                        BleakScanner.find_device_by_address(mac), timeout=10.0
+                        scanner.find_device_by_address(mac), timeout=10.0
                     )
 
                     if ble_device is None:
