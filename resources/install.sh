@@ -10,7 +10,7 @@ SERVICE_USER="avion_mqtt"
 mkdir "/usr/local/lib/$SERVICE_NAME"
 cd "/usr/local/lib/$SERVICE_NAME"
 
-apt install -y python3-pip python3-venv
+apt install -y python3-pip python3-venv bluetooth
 
 # Create virtual environment for python
 python3 -m venv .venv
