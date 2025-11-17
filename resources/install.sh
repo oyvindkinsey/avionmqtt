@@ -10,8 +10,7 @@ SERVICE_USER="avion_mqtt"
 mkdir "/usr/local/lib/$SERVICE_NAME"
 cd "/usr/local/lib/$SERVICE_NAME"
 
-# Install basic dependencies (libglib2 is needed for bluez)
-apt install -y libglib2.0-dev python3-pip
+apt install -y python3-pip python3-venv
 
 # Create virtual environment for python
 python3 -m venv .venv
