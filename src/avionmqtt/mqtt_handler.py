@@ -1,27 +1,13 @@
 import asyncio
 import logging
-from dataclasses import dataclass
 
 import aiomqtt
+from avionmesh import MeshCommand, MeshStatus
 
 from .Mqtt import Mqtt
 
 logger = logging.getLogger(__name__)
 MQTT_RETRY_INTERVAL = 5
-
-
-@dataclass
-class MeshCommand:
-    """Command from MQTT to be sent to mesh"""
-
-    data: dict
-
-
-@dataclass
-class MeshStatus:
-    """Status update from mesh to be sent to MQTT"""
-
-    data: dict
 
 
 async def mqtt_handler(

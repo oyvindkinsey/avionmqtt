@@ -73,3 +73,7 @@ Added several small improvements, leaving the package in a reasonable usable sta
 ## 2.0.2 2025-11-16
 
 - Reduced the set of dependencies to support home assistant custom integration
+
+## 2.0.6 2025-11-21
+
+- Moved Mesh to a separate repository and pypip module - avionmesh

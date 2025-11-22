@@ -3,8 +3,7 @@ import logging
 from typing import AsyncIterator, List, Optional
 
 import aiomqtt
-
-from .Mesh import CAPABILITIES, PRODUCT_NAMES
+from avionmesh.Mesh import CAPABILITIES, PRODUCT_NAMES
 
 logger = logging.getLogger(__name__)
 
