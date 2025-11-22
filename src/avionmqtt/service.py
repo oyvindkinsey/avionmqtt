@@ -1,11 +1,11 @@
 import asyncio
 import logging
 
+from avionhttp import http_list_devices
 from avionmesh import MeshCommand, MeshStatus, mesh_handler
 from avionmesh.Mesh import apply_overrides_from_settings
 from bleak import BleakScanner
 
-from .Http import http_list_devices
 from .mqtt_handler import mqtt_handler
 
 logger = logging.getLogger(__name__)

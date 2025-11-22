@@ -77,3 +77,7 @@ Added several small improvements, leaving the package in a reasonable usable sta
 ## 2.0.6 2025-11-21
 
 - Moved Mesh to a separate repository and pypip module - avionmesh
+
+## 2.0.7 2025-11-22
+
+- Moved Http to a separate repository and pypip module - avionhttp
