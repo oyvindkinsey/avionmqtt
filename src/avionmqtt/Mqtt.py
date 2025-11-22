@@ -50,8 +50,9 @@ class Mqtt:
 
         if product_id in CAPABILITIES["color_temp"]:
             config["supported_color_modes"] = ["color_temp"]
-            config["min_mireds"] = 370
-            config["max_mireds"] = 200
+            config["color_temp_kelvin"] = True
+            config["min_kelvin"] = 2700
+            config["max_kelvin"] = 5000
 
         await self.mqtt.publish(
             f"homeassistant/light/avid_{avid}/config",
@@ -144,9 +145,8 @@ class Mqtt:
                 "brightness": brightness,
             }
         elif "color_temp" in message:
-            color_temp = message["color_temp"]
-            payload = {"color_temp": color_temp}
+            payload = {"color_temp": message["color_temp"]}
         else:
             return
-
+        logger.info(f"mqtt: publishing status to {state_topic}: {payload}")
         await self.mqtt.publish(state_topic, json.dumps(payload), retain=True)

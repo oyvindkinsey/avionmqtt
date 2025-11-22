@@ -123,9 +123,7 @@ def _parse_data(target_id: int, data: bytes) -> Optional[dict]:
             return {"avid": target_id, "brightness": brightness}
         elif noun == Noun.COLOR:
             kelvin = int.from_bytes(value_bytes[2:4], byteorder="big")
-            mired = (int)(1000000 / kelvin)
-            logger.info(f"mesh: Converting kelvin({kelvin}) to mired({mired})")
-            return {"avid": target_id, "color_temp": mired}
+            return {"avid": target_id, "color_temp": kelvin}
         else:
             logger.warning(f"unknown noun {noun}")
     except Exception as e:
@@ -426,10 +424,7 @@ class Mesh:
                 if "brightness" in payload:
                     packet = _get_brightness_packet(avid, payload["brightness"])
                 elif "color_temp" in payload:
-                    mired = payload["color_temp"]
-                    kelvin = (int)(1000000 / mired)
-                    logger.info(f"mesh: Converting mired({mired}) to kelvin({kelvin})")
-                    packet = _get_color_temp_packet(avid, kelvin)
+                    packet = _get_color_temp_packet(avid, payload["color_temp"])
                 elif "state" in payload:
                     packet = _get_brightness_packet(avid, 255 if payload["state"] == "ON" else 0)
                 else:
