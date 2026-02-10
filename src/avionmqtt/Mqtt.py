@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import AsyncIterator, List, Optional
+from collections.abc import AsyncIterator
 
 import aiomqtt
 from avionmesh.Mesh import CAPABILITIES, PRODUCT_NAMES
@@ -58,7 +58,7 @@ class Mqtt:
             json.dumps(config),
         )
 
-    async def _register_category(self, use_single_device: bool, settings: dict, list: List[dict]):
+    async def _register_category(self, use_single_device: bool, settings: dict, list: list[dict]):
         if settings["import"]:
             include = settings.get("include", None)
             exclude = settings.get("exclude", {})
@@ -92,7 +92,7 @@ class Mqtt:
         else:
             logger.info("mqtt: Home Assistant offline")
 
-    async def handle_light_command(self, message) -> Optional[dict]:
+    async def handle_light_command(self, message) -> dict | None:
         decoded = message.payload.decode()
         if decoded is None or len(decoded) == 0:
             # empty payloads are used for deletes
@@ -101,7 +101,7 @@ class Mqtt:
         logger.info(f"mqtt: received {decoded} for {avid}")
         return {"avid": avid, "command": "update", "json": decoded}
 
-    async def handle_avionmqtt_command(self, message) -> Optional[dict]:
+    async def handle_avionmqtt_command(self, message) -> dict | None:
         if message.payload.decode() == "poll_mesh":
             logger.info("mqtt: polling mesh")
             return {"avid": 0, "command": "read_all"}

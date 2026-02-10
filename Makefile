@@ -1,11 +1,11 @@
-.PHONY: help install install-dev format lint test test-cov clean
+.PHONY: help install install-dev format lint test test-cov test-fast clean
 
 help:
 	@echo "Available commands:"
 	@echo "  make install        - Install package"
 	@echo "  make install-dev    - Install package with dev dependencies"
-	@echo "  make format         - Format code with black and isort"
-	@echo "  make lint           - Run linters (flake8, mypy)"
+	@echo "  make format         - Format code with ruff"
+	@echo "  make lint           - Run linters (ruff, mypy)"
 	@echo "  make test           - Run tests"
 	@echo "  make test-cov       - Run tests with coverage report"
 	@echo "  make test-fast      - Run tests without slow tests"
@@ -16,14 +16,13 @@ install:
 
 install-dev:
 	pip install -e ".[dev]"
-	pre-commit install
 
 format:
-	black src tests
-	isort src tests
+	ruff format src tests
+	ruff check --fix src tests
 
 lint:
-	flake8 src tests
+	ruff check src tests
 	mypy src
 
 test:

@@ -74,4 +74,3 @@ class AvionMqttService:
         except Exception:
             logger.exception("Fatal error in service")
             raise
-            raise
