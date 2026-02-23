@@ -2,6 +2,10 @@
 
 > **This project is no longer actively maintained.**
 > The recommended replacement is [esphome-avionmesh](https://github.com/oyvindkinsey/esphome-avionmesh) — an ESPHome component that provides fully local control of Avi-on mesh devices via a dedicated ESP32 gateway, with Home Assistant MQTT auto-discovery and a built-in web management UI.
+>
+> The underlying protocol work has been factored into standalone libraries:
+> - [avionmesh](https://github.com/oyvindkinsey/avionmesh) — Python library and `mesh-tui` CLI for direct BLE mesh management
+> - [avionmesh-cpp](https://github.com/oyvindkinsey/avionmesh-cpp) — C++ port, used as the basis of the ESPHome component
 
 A python library to bridge between Avi-on based lights and Home Assistant using MQTT
 
